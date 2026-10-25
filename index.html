@@ -62,7 +62,28 @@ body[data-level="4"] .btn,body[data-level="5"] .btn{color:#a8a8a8}
 body.film #top{display:none}
 #foot,#disc{position:absolute;left:0;right:0;text-align:center;z-index:3;opacity:0;transition:opacity 1.5s;letter-spacing:.25em}
 #foot{bottom:max(18px,env(safe-area-inset-bottom));font-size:11px;color:#444}
-#disc{bottom:max(40px,calc(env(safe-area-inset-bottom) + 22px));font-size:10px;color:#3a3a3a;transition-duration:4s;padding:0 24px;letter-spacing:.18em}
+#disc{position:fixed;z-index:15;pointer-events:none;bottom:max(40px,calc(env(safe-area-inset-bottom) + 22px));font-size:10px;color:#3a3a3a;transition-duration:4s;padding:0 24px;letter-spacing:.18em}
+
+/* ---------- finale: the screen comes apart, then switches off ---------- */
+#tears{position:fixed;inset:0;z-index:14;pointer-events:none;overflow:hidden}
+#tears i{position:absolute;left:0;right:0;display:block;mix-blend-mode:screen}
+body.melt #app{animation:melt .6s steps(1,end) infinite}
+body.melt #scan{opacity:.95}body.melt #vig{opacity:1!important}body.melt #redveil{opacity:.85}
+@keyframes melt{
+ 0%{transform:translate(0,0) skewX(0);filter:drop-shadow(-7px 0 rgba(255,30,30,.7)) drop-shadow(7px 0 rgba(90,200,255,.55))}
+ 12%{transform:translate(-16px,3px) skewX(5deg);filter:drop-shadow(-12px 0 rgba(255,30,30,.7)) drop-shadow(12px 0 rgba(90,200,255,.55)) blur(.8px)}
+ 25%{transform:translate(13px,-4px) skewX(-6deg) scaleY(1.04);filter:drop-shadow(10px 0 rgba(255,30,30,.7)) drop-shadow(-10px 0 rgba(90,200,255,.5))}
+ 38%{transform:translate(-7px,9px) skewX(3deg);filter:blur(1.6px) drop-shadow(-5px 0 rgba(255,30,30,.6))}
+ 52%{transform:translate(20px,0) skewX(-10deg) scaleX(1.03);filter:drop-shadow(14px 0 rgba(255,30,30,.7)) drop-shadow(-14px 0 rgba(90,200,255,.55))}
+ 66%{transform:translate(-22px,-3px) skewX(8deg);filter:blur(1px) drop-shadow(-9px 0 rgba(255,30,30,.6))}
+ 80%{transform:translate(5px,6px) skewX(-3deg) scaleY(.97);filter:drop-shadow(6px 0 rgba(90,200,255,.6))}
+ 92%{transform:translate(-3px,-5px) skewX(2deg);filter:drop-shadow(-8px 0 rgba(255,30,30,.7))}
+}
+body.off #app{animation:crtoff .5s cubic-bezier(.7,0,1,.6) forwards}
+body.off #figure{opacity:0!important}
+@keyframes crtoff{0%{transform:none;filter:none;opacity:1}55%{transform:scale(1,.012);filter:none;opacity:.8}100%{transform:scale(0,.012);opacity:0}}
+@media (prefers-reduced-motion:reduce){body.melt #app{animation:none}}
+body.noglitch.melt #app{animation:none}
 #foot.vis,#disc.vis{opacity:1}
 
 /* ---------- CRT / atmosphere ---------- */
@@ -123,9 +144,10 @@ body.noglitch #figure{display:none}
   <div id="bg"></div>
   <header id="top"><span id="mark">WHO'S THERE?</span><button id="snd" type="button" aria-label="Toggle sound">SOUND: ON</button></header>
   <main id="stage"><div id="content" aria-live="polite"></div></main>
-  <div id="disc">WHO'S THERE? IS A WORK OF FICTION. NOTHING WAS RECORDED, TRACKED OR STORED.</div>
   <footer id="foot">You agreed to continue.</footer>
 </div>
+<div id="disc">WHO'S THERE? IS A WORK OF FICTION. NOTHING WAS RECORDED, TRACKED OR STORED.</div>
+<div id="tears"></div>
 
 <canvas id="noise" width="200" height="120"></canvas>
 <div id="redveil"></div><div id="vig"></div><div id="scan"></div><div id="roll"></div><div id="flick"></div>
@@ -161,6 +183,7 @@ body.noglitch #figure{display:none}
   <label><input type="checkbox" id="ofilm"> Film preview mode (clean screen, fullscreen)</label>
   <label><input type="checkbox" id="olimit"> 60-second limit (auto-pacing)</label>
   <label><input type="checkbox" id="odisc"> Fiction notice at the end</label>
+  <label><input type="checkbox" id="ofinale"> Finale: screen distortion + high-pitched whine</label>
   <select id="pspeed" style="margin-top:8px">
     <option value="0.5">Playback speed 0.5× (slow)</option><option value="1">Playback speed 1× (normal)</option>
     <option value="2">Playback speed 2× (rehearsal)</option><option value="4">Playback speed 4×</option><option value="8">Playback speed 8×</option>
@@ -179,7 +202,7 @@ const reduced=matchMedia('(prefers-reduced-motion: reduce)').matches;
 const URLQ=new URLSearchParams(location.search);
 
 /* =====================  CONFIG (only non-personal prefs)  ===================== */
-const CFG=Object.assign({sound:true,glitch:true,film:false,speed:1,mode:'standard',disc:true,limit:true},(()=>{try{return JSON.parse(localStorage.getItem('wt_cfg')||'{}')}catch(e){return{}}})());
+const CFG=Object.assign({sound:true,glitch:true,film:false,speed:1,mode:'standard',disc:true,limit:true,finale:true},(()=>{try{return JSON.parse(localStorage.getItem('wt_cfg')||'{}')}catch(e){return{}}})());
 const save=()=>{try{localStorage.setItem('wt_cfg',JSON.stringify(CFG))}catch(e){}};
 if(URLQ.has('film'))CFG.film=URLQ.get('film')!=='0';
 if(URLQ.get('speed'))CFG.speed=Math.max(.25,Math.min(8,+URLQ.get('speed')||1));
@@ -257,8 +280,8 @@ const INTRO={bg:0,noise:.035,vig:.5,ms:30,pause:0,hold:0};
    remaining nominal time is compared with what is left of the budget; if the
    viewer is slow, everything after speeds up (and the answer timer shortens)
    so the whole run stays under a minute from the START click.            */
-const BUDGET=48;                 // seconds from START (+ ~3.5s intro = comfortably under 60)
-const NOM={q:4.2,moment:7,final:11,reveal:13};
+const BUDGET=46.5;                // seconds from START (+ ~3.5s intro = comfortably under 60)
+const NOM={q:4.2,moment:7,final:11,reveal:15.5};
 const ANS_T={q:3.2,moment:2.4,final:3.2};
 
 /* =====================  STATE  =====================*/
@@ -431,6 +454,24 @@ const A={ctx:null,
   g.gain.setValueAtTime(0,t);g.gain.linearRampToValueAtTime(.05,t+.2);g.gain.linearRampToValueAtTime(0,t+1);
   o.connect(f);f.connect(g);g.connect(this.master);o.start(t);o.stop(t+1.05);
  },
+ screech(sec=2.2){                                     // finale: rising high-pitched whine, ramped in, capped, then a fading tinnitus tail
+  if(!this.live())return;
+  const c=this.ctx,t=c.currentTime+.02,end=t+sec,g=c.createGain(),tail=c.createGain();
+  g.gain.setValueAtTime(0,t);g.gain.linearRampToValueAtTime(.03,t+.5);g.gain.linearRampToValueAtTime(.05,t+sec*.8);g.gain.setValueAtTime(.05,end-.02);g.gain.linearRampToValueAtTime(0,end);
+  g.connect(this.master);
+  const tone=(type,f0,f1,gain,vib)=>{const o=c.createOscillator(),og=c.createGain();o.type=type;o.frequency.setValueAtTime(f0,t);o.frequency.linearRampToValueAtTime(f1,end);og.gain.value=gain;o.connect(og);og.connect(g);
+   if(vib){const l=c.createOscillator(),lg=c.createGain();l.frequency.value=vib[0];lg.gain.value=vib[1];l.connect(lg);lg.connect(o.frequency);l.start(t);l.stop(end+.1)}
+   o.start(t);o.stop(end+.1)};
+  tone('sine',5200,7600,1,[11,260]);tone('sine',8100,9300,.5,[7,180]);
+  const sq=c.createOscillator(),sf=c.createBiquadFilter(),sg=c.createGain(),am=c.createOscillator(),ag=c.createGain();   // stuttering digital edge
+  sq.type='square';sq.frequency.value=3120;sf.type='highpass';sf.frequency.value=2600;sg.gain.value=.1;
+  am.frequency.value=13;ag.gain.value=.1;am.connect(ag);ag.connect(sg.gain);sq.connect(sf);sf.connect(sg);sg.connect(g);
+  sq.start(t);am.start(t);sq.stop(end+.1);am.stop(end+.1);
+  const n=this.noiseSrc(t,sec),nf=c.createBiquadFilter(),ng=c.createGain();nf.type='highpass';nf.frequency.value=4500;ng.gain.value=.25;n.connect(nf);nf.connect(ng);ng.connect(g);
+  const lo=c.createOscillator(),lg2=c.createGain();lo.frequency.value=38;lg2.gain.setValueAtTime(0,t);lg2.gain.linearRampToValueAtTime(.12,end-.1);lg2.gain.linearRampToValueAtTime(0,end);lo.connect(lg2);lg2.connect(this.master);lo.start(t);lo.stop(end+.1);   // pressure underneath
+  tail.gain.setValueAtTime(0,end);tail.gain.linearRampToValueAtTime(.012,end+.05);tail.gain.linearRampToValueAtTime(0,end+3.2);tail.connect(this.master);
+  const to=c.createOscillator();to.frequency.value=6900;to.connect(tail);to.start(end);to.stop(end+3.3);
+ },
  sting(){                                             // the mood turns: low swell
   if(!this.live())return;
   const c=this.ctx,t=c.currentTime+.03,g=c.createGain();
@@ -584,9 +625,9 @@ function enter(key){
   let off=0,total=0,found=false;
   for(const s of S.stages){if(s.k===key)found=true;if(!found)off+=s.d;total+=s.d}
   const now=performance.now();
-  if(S.t0==null)S.t0=now-off*1000;            // jumped in: assume "on schedule"
+  if(S.t0==null)S.t0=now-off*(BUDGET/total)*1000;   // jumped in: assume "on schedule"
   const left=Math.max(2.5,BUDGET-(now-S.t0)/1000);
-  S.pace=CFG.limit?Math.min(3.5,Math.max(1,(total-off)/(left*CFG.speed))):1;
+  S.pace=(CFG.limit&&CFG.speed>=1)?Math.min(3.5,Math.max(1,(total-off)/(left*CFG.speed))):1;
 }
 function pickReaction(level,dt,auto){
   if(auto)return AUTO_REACT[Math.floor(Math.random()*AUTO_REACT.length)];
@@ -691,23 +732,52 @@ async function reveal(){
   await say('Look behind you.',40,'line accent');glitch(false);
   A.steps(6,.42,.04,1.16,0);A.whisper(.06,.8);                   // slow footsteps closing in
   const fig=$('#figure');fig.setAttribute('class','c');fig.style.opacity=.5;
-  await sleep(2500);
+  await sleep(2000);
   fig.style.opacity=0;audioPhase('silent');                       // everything stops
-  await say('Just kidding.',40);await sleep(800);
+  await say('Just kidding.',40);await sleep(700);
   await say('Or are we?',45);
+  await sleep(600);
+  if(CFG.finale){
+    audioPhase('static');
+    await finale();
+  }else{
+    audioPhase('static');A.knock(2,.5,.45,0);glitch(true);       // one last knock
+    setTimeout(()=>{fig.setAttribute('class','c');fig.style.opacity=.35},900);
+    await sleep(1400);
+  }
   S.phase='ended';stat();
-  await sleep(900);
-  audioPhase('static');A.knock(2,.5,.45,0);glitch(true);         // one last knock
-  setTimeout(()=>{fig.setAttribute('class','c');fig.style.opacity=.35},900);
-  await sleep(1400);
   if(CFG.disc)$('#disc').classList.add('vis');
-  // let the static die out slowly; the page stays black with a blinking cursor
-  await sleep(4000);audioPhase('silent');
+  await sleep(2500);audioPhase('silent');
+}
+/* The last beat: the whole screen comes apart under a rising high-pitched whine, then switches off.
+   Motion/tearing only (no full-screen brightness strobing); skipped by "Glitch effects: off" and reduced-motion. */
+async function finale(){
+  S.phase='finale';stat();
+  const T=$('#tears'),body=document.body,t=S.token;
+  const lines=[...C.querySelectorAll('.line')],G='▒░█#@%/\\|¦§',COL=['rgba(255,255,255,.07)','rgba(255,30,30,.13)','rgba(110,200,255,.09)'];
+  const garble=()=>lines.forEach(l=>{const tn=l.firstChild;if(!tn||tn.nodeType!==3)return;if(tn._o==null)tn._o=tn.data;tn.data=tn._o.replace(/[A-Za-z]/g,ch=>Math.random()<.45?G[Math.floor(Math.random()*G.length)]:ch)});
+  const tears=()=>{let h='';for(let i=0,n=3+Math.floor(Math.random()*4);i<n;i++)h+=`<i style="top:${rand(0,95)}%;height:${rand(.4,9)}%;background:${COL[Math.floor(Math.random()*3)]};transform:translateX(${rand(-40,40)}px)"></i>`;T.innerHTML=h};
+  let iv=null;
+  try{
+    A.knock(2,.26,.5,0);await sleep(420);                          // two knocks... then it all breaks
+    if(CFG.glitch&&!reduced){
+      body.classList.add('melt');
+      $('#noise').style.opacity=.5;
+      const fig=$('#figure');fig.setAttribute('class','c');fig.style.opacity=.55;
+      iv=setInterval(()=>{if(t!==S.token){clearInterval(iv);return}garble();tears()},85);
+    }
+    A.screech(2.2);
+    await sleep(2200);
+  }finally{clearInterval(iv)}
+  clearInterval(iv);T.innerHTML='';
+  body.classList.remove('melt');body.classList.add('off');         // CRT switches off
+  await sleep(500);
+  $('#noise').style.opacity=.04;
 }
 
 /* =====================  RESET / VIEW  ===================== */
 function resetView(){
-  document.body.classList.remove('red','reveal');
+  document.body.classList.remove('red','reveal','melt','off');$('#tears').innerHTML='';
   ['#mark','#snd','#foot','#disc'].forEach(s=>$(s).classList.remove('vis'));
   document.title='WHO\'S THERE?';S.pace=1;$('#figure').style.opacity=0;
   S.audioPhase='silent';setLevel(-1);
@@ -719,7 +789,7 @@ function resetExperience(){
 function go(fn){
   S.started=true;S.t0=null;
   $('#mark').classList.add('vis');$('#snd').classList.add('vis');$('#foot').classList.add('vis');
-  document.body.classList.remove('red','reveal');$('#disc').classList.remove('vis');document.title='WHO\'S THERE?';
+  document.body.classList.remove('red','reveal','melt','off');$('#tears').innerHTML='';$('#disc').classList.remove('vis');document.title='WHO\'S THERE?';
   $('#figure').style.opacity=0;ensureAudio();run(fn);
 }
 const jumpTo=i=>go(()=>main(i));
@@ -742,7 +812,7 @@ function renderPlan(){
 }
 function syncUI(){
   $('#snd').textContent='SOUND: '+(CFG.sound?'ON':'OFF');
-  $('#osound').checked=CFG.sound;$('#oglitch').checked=CFG.glitch;$('#ofilm').checked=CFG.film;$('#olimit').checked=CFG.limit;$('#odisc').checked=CFG.disc;
+  $('#osound').checked=CFG.sound;$('#oglitch').checked=CFG.glitch;$('#ofilm').checked=CFG.film;$('#olimit').checked=CFG.limit;$('#odisc').checked=CFG.disc;$('#ofinale').checked=CFG.finale;
   $('#pspeed').value=String(CFG.speed);$('#pmode').value=CFG.mode;
   document.body.classList.toggle('film',CFG.film);document.body.classList.toggle('noglitch',!CFG.glitch);
   stat();
@@ -761,6 +831,7 @@ $('#ofilm').onchange=e=>{CFG.film=e.target.checked;save();syncUI();
   else try{document.fullscreenElement&&document.exitFullscreen()}catch(_){}};
 $('#olimit').onchange=e=>{CFG.limit=e.target.checked;save()};
 $('#odisc').onchange=e=>{CFG.disc=e.target.checked;save()};
+$('#ofinale').onchange=e=>{CFG.finale=e.target.checked;save()};
 $('#pclose').onclick=()=>togglePanel(false);
 $('#snd').onclick=()=>setSound(!CFG.sound);
 P.addEventListener('click',e=>{
