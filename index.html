@@ -1,0 +1,695 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="robots" content="noindex,nofollow">
+<meta name="theme-color" content="#000000">
+<meta name="description" content="A fictional interactive experience. Prop for a short film.">
+<title>WHO'S THERE?</title>
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+:root{--abL:rgba(120,190,255,.28);--abR:rgba(255,255,255,.12);--red:#c0191f}
+html,body{height:100%;background:#000;color:#e9e9e9;overflow:hidden}
+body{font-family:ui-monospace,"SF Mono","Cascadia Mono",Consolas,"Liberation Mono",monospace;-webkit-font-smoothing:antialiased;touch-action:manipulation}
+body.film{cursor:none}
+body.red{--abL:rgba(255,30,30,.45);--abR:rgba(255,255,255,.1)}
+
+/* ---------- app ---------- */
+#app{position:fixed;inset:0;display:flex;flex-direction:column}
+#bg{position:absolute;inset:0;background:radial-gradient(ellipse 70% 60% at 50% 45%,rgba(255,255,255,.075),rgba(255,255,255,0) 70%);opacity:0;transition:opacity 3s ease}
+#stage{position:relative;z-index:2;flex:1;display:flex;align-items:center;justify-content:center;padding:72px max(24px,env(safe-area-inset-right)) 76px max(24px,env(safe-area-inset-left))}
+#content{width:100%;max-width:680px;display:flex;flex-direction:column;gap:20px;transition:opacity .3s ease}
+#content.out{opacity:0}
+
+.label{font-size:11px;letter-spacing:.35em;color:#4d4d4d}
+.line{font-size:clamp(19px,3.3vw,28px);line-height:1.45;letter-spacing:.01em;min-height:1.45em;
+  text-shadow:0 0 8px rgba(255,255,255,.16),-.7px 0 var(--abL),.7px 0 var(--abR)}
+.line.react{color:#b4b4b4;font-size:clamp(17px,2.8vw,23px)}
+.line.big{font-size:clamp(28px,6vw,52px);letter-spacing:.02em}
+body.reveal .line{font-family:"Helvetica Neue",Helvetica,Arial,sans-serif;font-weight:300;letter-spacing:.2em;text-transform:uppercase;font-size:clamp(15px,2.9vw,24px)}
+body.reveal .line.title{font-size:clamp(22px,5vw,42px);line-height:1.35}
+.line.accent{color:var(--red);text-shadow:0 0 18px rgba(200,0,0,.5),-.8px 0 rgba(255,30,30,.4)}
+.line.dim{color:#6a6a6a}
+.caret{display:inline-block;width:.5em;height:1em;margin-left:3px;background:#e9e9e9;vertical-align:-.12em;opacity:.85;animation:blink 1.1s steps(1) infinite}
+body.red .caret{background:var(--red)}
+@keyframes blink{50%{opacity:0}}
+
+.opts{display:flex;flex-direction:column;gap:12px;margin-top:10px;align-items:flex-start;width:100%}
+.btn{font:inherit;font-size:clamp(15px,2.4vw,18px);color:#cfcfcf;background:#121212;border:1px solid #2a2a2a;border-radius:2px;
+  padding:14px 20px;min-height:50px;cursor:pointer;letter-spacing:.06em;text-align:left;max-width:100%;
+  opacity:0;animation:fadein .5s ease forwards;transition:background .25s,border-color .25s,color .25s,opacity .4s;-webkit-tap-highlight-color:transparent}
+.btn::before{content:"[ ";opacity:.45}.btn::after{content:" ]";opacity:.45}
+.btn:hover:not(:disabled){background:#1c1c1c;border-color:#555;color:#fff}
+.btn:focus-visible{outline:1px solid #888;outline-offset:3px}
+.btn:disabled{cursor:default}
+.btn.picked{border-color:#777;color:#fff}
+.btn.gone{opacity:0!important;pointer-events:none}
+body[data-level="4"] .btn,body[data-level="5"] .btn{color:#a8a8a8}
+@keyframes fadein{to{opacity:1}}
+.tbar{height:1px;width:100%;max-width:260px;background:#1b1b1b;margin-top:4px;transition:opacity .3s}
+.tbar i{display:block;height:100%;background:#4a4a4a;transform-origin:left}
+.tbar.off{opacity:0}
+.recall{font-size:clamp(16px,2.6vw,21px);color:#cfcfcf;opacity:0;animation:fadein .5s ease forwards}
+
+/* ---------- chrome ---------- */
+#top{position:absolute;top:0;left:0;right:0;z-index:5;display:flex;justify-content:space-between;align-items:center;
+  padding:max(18px,env(safe-area-inset-top)) 22px 0;font-size:11px;letter-spacing:.3em;color:#444;pointer-events:none}
+#mark{opacity:0;transition:opacity 1.5s}
+#snd{pointer-events:auto;background:none;border:1px solid #222;color:#666;font:inherit;font-size:11px;letter-spacing:.2em;padding:9px 12px;cursor:pointer;opacity:0;transition:opacity 1.5s,color .2s,border-color .2s;min-height:36px}
+#snd:hover{color:#aaa;border-color:#444}
+#mark.vis,#snd.vis{opacity:1}
+body.film #top{display:none}
+#foot,#disc{position:absolute;left:0;right:0;text-align:center;z-index:3;opacity:0;transition:opacity 1.5s;letter-spacing:.25em}
+#foot{bottom:max(18px,env(safe-area-inset-bottom));font-size:11px;color:#444}
+#disc{bottom:max(40px,calc(env(safe-area-inset-bottom) + 22px));font-size:10px;color:#3a3a3a;transition-duration:4s;padding:0 24px;letter-spacing:.18em}
+#foot.vis,#disc.vis{opacity:1}
+
+/* ---------- CRT / atmosphere ---------- */
+#noise,#redveil,#vig,#scan,#roll,#flick{position:fixed;pointer-events:none}
+#noise{inset:0;width:100%;height:100%;z-index:10;image-rendering:pixelated;mix-blend-mode:screen;opacity:.04;transition:opacity 3s}
+#redveil{inset:0;z-index:9;background:radial-gradient(ellipse at center,rgba(0,0,0,0) 35%,rgba(110,0,0,.42) 100%);opacity:0;transition:opacity 2.5s}
+body.red #redveil{opacity:.55;animation:breathe 4s ease-in-out infinite}
+@keyframes breathe{50%{opacity:.28}}
+#vig{inset:0;z-index:12;background:radial-gradient(ellipse at center,rgba(0,0,0,0) 38%,rgba(0,0,0,.88) 100%);opacity:.5;transition:opacity 3s}
+#scan{inset:0;z-index:11;background:repeating-linear-gradient(to bottom,rgba(0,0,0,0) 0,rgba(0,0,0,0) 2px,rgba(0,0,0,.2) 3px);opacity:.55;border-radius:10px}
+#roll{left:0;right:0;height:22vh;top:-25vh;z-index:11;background:linear-gradient(to bottom,rgba(255,255,255,0),rgba(255,255,255,.022),rgba(255,255,255,0));animation:roll 9s linear infinite}
+@keyframes roll{to{transform:translateY(150vh)}}
+#flick{inset:0;z-index:13;background:#000;opacity:0;animation:flick 6s infinite}
+@keyframes flick{0%,100%{opacity:0}6%{opacity:.05}7%{opacity:0}38%{opacity:0}39%{opacity:.07}40%{opacity:.01}41%{opacity:0}73%{opacity:.04}74%{opacity:0}}
+body.noglitch #roll,body.noglitch #flick{display:none}
+
+#app.gl{animation:gl .36s steps(1,end)}
+#app.gl2{animation:gl2 .6s steps(1,end)}
+@keyframes gl{0%{transform:none;filter:none}15%{transform:translate(-4px,0) skewX(1.5deg);filter:drop-shadow(-3px 0 rgba(120,190,255,.6)) drop-shadow(3px 0 rgba(255,255,255,.35))}
+  35%{transform:translate(5px,1px);filter:drop-shadow(3px 0 rgba(120,190,255,.5))}55%{transform:translate(-2px,-1px) skewX(-1deg);filter:none}100%{transform:none;filter:none}}
+@keyframes gl2{0%{transform:none;filter:none}10%{transform:translate(-9px,0) skewX(3deg);filter:blur(.6px) drop-shadow(-5px 0 rgba(255,40,40,.6)) drop-shadow(5px 0 rgba(255,255,255,.3))}
+  25%{transform:translate(8px,2px) skewX(-2deg);filter:drop-shadow(4px 0 rgba(255,40,40,.5))}
+  45%{transform:translate(-5px,-2px);filter:blur(.4px)}65%{transform:translate(3px,0) skewX(1deg);filter:drop-shadow(-3px 0 rgba(255,40,40,.4))}100%{transform:none;filter:none}}
+body.noglitch #app.gl,body.noglitch #app.gl2{animation:none}
+@media (prefers-reduced-motion:reduce){#roll,#flick{display:none}#app.gl,#app.gl2{animation:none}.caret{animation:none}}
+
+#figure{position:fixed;bottom:0;z-index:4;height:min(62vh,440px);width:auto;fill:#262626;pointer-events:none;opacity:0;filter:blur(3px);transition:opacity .9s ease}
+#figure.r{right:7%}#figure.l{left:7%}#figure.c{left:50%;transform:translateX(-50%);height:min(70vh,520px);fill:#2a1212;filter:blur(4px)}
+body.noglitch #figure{display:none}
+
+/* ---------- control panel ---------- */
+#hot{position:fixed;top:0;left:0;width:56px;height:56px;z-index:90}
+#panel{position:fixed;top:0;right:0;bottom:0;width:340px;max-width:100vw;z-index:100;background:#0b0b0b;border-left:1px solid #2a2a2a;
+  color:#bbb;font-size:12px;line-height:1.4;overflow-y:auto;padding:14px 14px 28px;transform:translateX(105%);transition:transform .25s ease;cursor:default}
+#panel.open{transform:none}
+#panel *{text-shadow:none}
+#panel .ph{display:flex;justify-content:space-between;align-items:center;letter-spacing:.2em;color:#eee;margin-bottom:8px}
+#panel h4{font-weight:400;letter-spacing:.2em;color:#666;margin:18px 0 8px;font-size:10px;text-transform:uppercase}
+#panel button,#panel select{font:inherit;color:#ddd;background:#171717;border:1px solid #333;padding:9px 10px;min-height:38px;cursor:pointer;border-radius:2px}
+#panel button:hover{background:#222;border-color:#555}
+#panel .row{display:flex;gap:8px;flex-wrap:wrap}#panel .row>*{flex:1}
+#panel .col{display:flex;flex-direction:column;gap:6px}
+#panel .grid{display:grid;grid-template-columns:repeat(4,1fr);gap:6px}
+#panel select{width:100%;margin-bottom:6px}
+#panel label{display:flex;align-items:center;gap:10px;padding:7px 0;cursor:pointer}
+#panel input[type=checkbox]{width:18px;height:18px;accent-color:#888}
+#pstat{background:#111;border:1px solid #222;padding:8px 10px;color:#8a8a8a;white-space:pre-wrap}
+#pplan{list-style:none;display:flex;flex-direction:column;gap:5px;margin-top:6px}
+#pplan button{width:100%;text-align:left;font-size:11px;min-height:34px}
+#pplan b{color:#777;font-weight:400}
+#panel .hint{color:#555;margin-top:18px}
+</style>
+</head>
+<body>
+<noscript><p style="color:#ccc;padding:24px;font-family:monospace">This page needs JavaScript.</p></noscript>
+
+<div id="app">
+  <div id="bg"></div>
+  <header id="top"><span id="mark">WHO'S THERE?</span><button id="snd" type="button" aria-label="Toggle sound">SOUND: ON</button></header>
+  <main id="stage"><div id="content" aria-live="polite"></div></main>
+  <div id="disc">WHO'S THERE? IS A WORK OF FICTION. NOTHING WAS RECORDED, TRACKED OR STORED.</div>
+  <footer id="foot">You agreed to continue.</footer>
+</div>
+
+<canvas id="noise" width="200" height="120"></canvas>
+<div id="redveil"></div><div id="vig"></div><div id="scan"></div><div id="roll"></div><div id="flick"></div>
+<svg id="figure" class="r" viewBox="0 0 100 260" aria-hidden="true"><circle cx="50" cy="30" r="18"/><path d="M8 260 L13 124 Q19 78 50 72 Q81 78 87 124 L92 260 Z"/></svg>
+<div id="hot" aria-hidden="true"></div>
+
+<aside id="panel" aria-hidden="true" aria-label="Production control panel">
+  <div class="ph"><b>PRODUCTION</b><button id="pclose" type="button" style="min-height:30px;padding:4px 10px">✕</button></div>
+  <div id="pstat"></div>
+
+  <h4>Playback</h4>
+  <div class="row"><button data-act="reset" type="button">Reset experience</button><button data-act="reload" type="button">Restart website</button></div>
+
+  <h4>Skip to question</h4>
+  <div class="grid" id="pjump"></div>
+
+  <h4>Trigger</h4>
+  <div class="col">
+    <button data-act="dark" type="button">Creepy section (atmosphere shift)</button>
+    <button data-act="moment" type="button">“Wait. Did you hear that?”</button>
+    <button data-act="final" type="button">Final question</button>
+    <button data-act="reveal" type="button">Final reveal</button>
+  </div>
+
+  <h4>Question sequence</h4>
+  <select id="pmode"></select>
+  <button data-act="shuffle" type="button" style="width:100%">Reshuffle questions</button>
+  <ol id="pplan"></ol>
+
+  <h4>Options</h4>
+  <label><input type="checkbox" id="osound"> Sound</label>
+  <label><input type="checkbox" id="oglitch"> Glitch / flicker effects</label>
+  <label><input type="checkbox" id="ofilm"> Film preview mode (clean screen, fullscreen)</label>
+  <label><input type="checkbox" id="olimit"> 60-second limit (auto-pacing)</label>
+  <label><input type="checkbox" id="odisc"> Fiction notice at the end</label>
+  <select id="pspeed" style="margin-top:8px">
+    <option value="0.5">Playback speed 0.5× (slow)</option><option value="1">Playback speed 1× (normal)</option>
+    <option value="2">Playback speed 2× (rehearsal)</option><option value="4">Playback speed 4×</option><option value="8">Playback speed 8×</option>
+  </select>
+
+  <p class="hint">Open / close: <b>`</b> (backquote) or Ctrl+Alt+P · Esc closes.<br>On a phone: tap the top-left corner 5 times.<br>URL options: ?film &nbsp; ?panel &nbsp; ?speed=2</p>
+</aside>
+
+<script>
+(()=>{
+'use strict';
+const $=s=>document.querySelector(s);
+const ABORT=Symbol('abort');
+const rand=(a,b)=>a+Math.random()*(b-a);
+const reduced=matchMedia('(prefers-reduced-motion: reduce)').matches;
+const URLQ=new URLSearchParams(location.search);
+
+/* =====================  CONFIG (only non-personal prefs)  ===================== */
+const CFG=Object.assign({sound:true,glitch:true,film:false,speed:1,mode:'standard',disc:true,limit:true},(()=>{try{return JSON.parse(localStorage.getItem('wt_cfg')||'{}')}catch(e){return{}}})());
+const save=()=>{try{localStorage.setItem('wt_cfg',JSON.stringify(CFG))}catch(e){}};
+if(URLQ.has('film'))CFG.film=URLQ.get('film')!=='0';
+if(URLQ.get('speed'))CFG.speed=Math.max(.25,Math.min(8,+URLQ.get('speed')||1));
+
+/* =====================  CONTENT  ===================== */
+const TIER=['Funny','Weird','Personal','Psychological','Creepy','Disturbing'];
+// [tier, question, options]
+const POOL=[
+ [0,'Do you talk to yourself when nobody is around?',['Yes, obviously','Only when necessary','I am my own therapist','Next question']],
+ [0,'What is the last thing you searched on your phone?',['Something embarrassing','Something important','Absolutely not telling you']],
+ [0,'Have you ever waved back at someone who wasn\'t waving at you?',['Weekly','Never. Liar.','Still embarrassed']],
+ [0,'Have you ever pretended to be on a call to avoid someone?',['Professionally','Only once today','Next question']],
+ [0,'How many browser tabs do you have open right now?',['Too many','I refuse to answer','Define "open"']],
+ [0,'Do you say "you too" when the waiter says enjoy your meal?',['Constantly','I\'ve moved on','Still thinking about it']],
+
+ [1,'Have you ever checked behind you after a horror movie?',['Yes','Every single time','Never. I\'m lying.']],
+ [1,'Do you believe someone can recognize your footsteps?',['Maybe','Absolutely not','Now I\'ll think about it']],
+ [1,'If your reflection moved differently, would you notice?',['Immediately','Eventually','I check daily now']],
+ [1,'How many times have you checked if your door is locked?',['Once','Twice','More than I\'d admit']],
+ [1,'Could someone recognize you by your breathing?',['Possibly','That\'s a strange question','Stop it']],
+
+ [2,'Do you always walk this fast?',['Yes','Only when it\'s dark','I wasn\'t aware I was']],
+ [2,'Why do you keep looking at the door?',['I\'m not','Habit','I thought I heard something']],
+ [2,'Do you remember the last person you saw today?',['Yes','Not clearly','No']],
+ [2,'Do you usually check your surroundings?',['Always','Sometimes','Not enough']],
+ [2,'Would you recognize someone walking behind you?',['Yes','No','Depends how long']],
+
+ [3,'What if someone called your name from an empty room?',['Answer','Leave','Pretend I didn\'t hear']],
+ [3,'Have you felt watched when nobody was there?',['Yes','Once','More than once']],
+ [3,'Do you trust the silence in your room?',['Yes','Not entirely','No']],
+ [3,'Have you been sure you were alone, and then weren\'t?',['Yes','No','I\'m not sure which']],
+
+ [4,'Are you alone right now?',['Yes','No','I think so']],
+ [4,'When were you last sure nobody was behind you?',['Today','A while ago','I can\'t remember']],
+ [4,'Is it quiet where you are?',['Yes','Not entirely','Listening now']],
+ [4,'Do you ever sit with your back to the door?',['Never','Right now','Please stop']],
+ [4,'Do you know what is directly behind you?',['Yes','No','Don\'t']],
+
+ [5,'How long have you been sitting like that?',['A while','Not long','Why?']],
+ [5,'Did you notice the room change a moment ago?',['Yes','No','What changed']],
+ [5,'How long before you\'d notice someone standing still behind you?',['A few seconds','A few minutes','I wouldn\'t']],
+ [5,'What was the last sound you heard before this question?',['Nothing','Something','I won\'t say']]
+];
+const REACT=[
+ ['Interesting.','That makes sense.','Very human.','Noted.','Fair enough.','Relatable.'],
+ ['Are you sure?','That\'s what everyone says.','Hm.','Most people hesitate here.','Interesting. Again.'],
+ ['Understood.','We thought so.','That\'s consistent.','Of course you did.'],
+ ['Okay.','Is that the truth?','Interesting choice.','You didn\'t have to answer that.'],
+ ['Good.','Don\'t look up yet.','We\'ve written that down.','Shh.','That\'s what we expected.'],
+ ['Stay still.','Don\'t turn around.','Thank you for being honest.','We know.']
+];
+const AUTO_REACT=['Too slow.','We chose for you.','Time is a luxury.'];
+
+const MODES={
+ standard:{name:'Standard — random within phases',tiers:[0,0,1,2,3,4],rand:true},
+ scripted:{name:'Scripted — fixed order',tiers:[0,0,1,2,3,4],rand:false},
+ early:{name:'Early dread — creepy sooner',tiers:[0,1,2,3,4,5],rand:true}
+};
+if(URLQ.get('mode')&&MODES[URLQ.get('mode')])CFG.mode=URLQ.get('mode');
+if(!MODES[CFG.mode])CFG.mode='standard';
+
+/* Atmosphere per level 0..5 (funny → disturbing) */
+const LV=[
+ {bg:1,  noise:.04, vig:.50,ms:15,pause:250,hold:450},
+ {bg:.8, noise:.05, vig:.58,ms:19,pause:300,hold:450},
+ {bg:.35,noise:.06, vig:.70,ms:24,pause:350,hold:500},
+ {bg:.12,noise:.075,vig:.80,ms:29,pause:400,hold:550},
+ {bg:0,  noise:.09, vig:.90,ms:35,pause:450,hold:600},
+ {bg:0,  noise:.10, vig:1,  ms:42,pause:500,hold:650}
+];
+const INTRO={bg:0,noise:.035,vig:.5,ms:30,pause:0,hold:0};
+
+/* =====================  60-SECOND PACING  =====================
+   Every stage has a nominal duration (seconds). On entering a stage the
+   remaining nominal time is compared with what is left of the budget; if the
+   viewer is slow, everything after speeds up (and the answer timer shortens)
+   so the whole run stays under a minute from the START click.            */
+const BUDGET=48;                 // seconds from START (+ ~3.5s intro = comfortably under 60)
+const NOM={q:4.2,moment:7,final:11,reveal:13};
+const ANS_T={q:3.2,moment:2.4,final:3.2};
+
+/* =====================  STATE  =====================*/
+const S={token:0,rejectors:[],started:false,plan:[],answers:[],usedR:new Set(),level:-1,idx:-1,phase:'idle',
+  caret:null,keyPick:null,audioPhase:'silent',pace:1,t0:null,stages:[],momentAfter:0};
+const C=$('#content'),APP=$('#app');
+
+function abort(){S.token++;const r=S.rejectors;S.rejectors=[];S.keyPick=null;r.forEach(f=>f())}
+const sleep=ms=>{const t=S.token;return new Promise((res,rej)=>setTimeout(()=>t===S.token?res():rej(ABORT),ms/(CFG.speed*S.pace)))};
+function hardClear(){C.innerHTML='';C.classList.remove('out');S.caret=null}
+function run(fn){abort();hardClear();return fn().catch(e=>{if(e!==ABORT)console.error(e)})}
+
+/* =====================  AUDIO (Web Audio, user-gesture only)  ===================== */
+const A={ctx:null,
+ init(){
+  if(this.ctx){if(this.ctx.state==='suspended')this.ctx.resume();return}
+  const AC=window.AudioContext||window.webkitAudioContext;if(!AC)return;
+  let c;try{c=new AC()}catch(e){return}
+  this.ctx=c;
+  const m=this.master=c.createGain();m.gain.value=CFG.sound?1:0;m.connect(c.destination);
+  const n=c.sampleRate*4,wb=this.white=c.createBuffer(1,n,c.sampleRate),bb=c.createBuffer(1,n,c.sampleRate);
+  const wd=wb.getChannelData(0),bd=bb.getChannelData(0);let last=0;
+  for(let i=0;i<n;i++){const w=Math.random()*2-1;wd[i]=w;last=(last+.02*w)/1.02;bd[i]=last*3.5}
+  const loop=(buf,node)=>{const s=c.createBufferSource();s.buffer=buf;s.loop=true;s.connect(node);s.start()};
+  // low drone
+  const dg=this.dg=c.createGain();dg.gain.value=0;dg.connect(m);
+  const lp=c.createBiquadFilter();lp.type='lowpass';lp.frequency.value=220;lp.Q.value=.7;lp.connect(dg);
+  const mk=(type,f,g)=>{const o=c.createOscillator(),og=c.createGain();o.type=type;o.frequency.value=f;og.gain.value=g;o.connect(og);og.connect(lp);o.start();return o};
+  mk('sine',43.65,.9);this.o2=mk('sine',44.4,.7);mk('triangle',87.3,.28);mk('sine',130.8,.05);
+  const lfo=c.createOscillator(),lg=c.createGain();lfo.frequency.value=.06;lg.gain.value=60;lfo.connect(lg);lg.connect(lp.frequency);lfo.start();
+  // room tone
+  const rg=this.rg=c.createGain();rg.gain.value=0;rg.connect(m);
+  const rl=c.createBiquadFilter();rl.type='lowpass';rl.frequency.value=380;rl.connect(rg);loop(bb,rl);
+  // quiet static
+  const sg=this.sg=c.createGain();sg.gain.value=0;sg.connect(m);
+  const sl=c.createBiquadFilter();sl.type='lowpass';sl.frequency.value=7000;sl.connect(sg);
+  const sh=c.createBiquadFilter();sh.type='highpass';sh.frequency.value=1800;sh.connect(sl);loop(wb,sh);
+ },
+ apply(){
+  if(!this.ctx)return;const t=this.ctx.currentTime,L=Math.max(0,S.level);
+  const T={ambient:[.06+.01*L,.03+.004*L,0],dip:[.012,.008,0],silent:[0,0,0],static:[0,0,.02]}[S.audioPhase]||[0,0,0];
+  const tc=S.audioPhase==='silent'?.5:1.1;
+  this.dg.gain.setTargetAtTime(T[0],t,tc);this.rg.gain.setTargetAtTime(T[1],t,tc);this.sg.gain.setTargetAtTime(T[2],t,tc);
+  this.o2.frequency.setTargetAtTime(44.4+L*.3,t,2);
+  this.master.gain.setTargetAtTime(CFG.sound?1:0,t,.15);
+ },
+ tick(){
+  if(!this.ctx||!CFG.sound||(S.audioPhase!=='ambient'&&S.audioPhase!=='dip'))return;
+  const c=this.ctx,t=c.currentTime,s=c.createBufferSource(),f=c.createBiquadFilter(),g=c.createGain();
+  s.buffer=this.white;f.type='bandpass';f.frequency.value=1800+Math.random()*900;f.Q.value=3;
+  g.gain.setValueAtTime(.03,t);g.gain.exponentialRampToValueAtTime(.0005,t+.025);
+  s.connect(f);f.connect(g);g.connect(this.master);s.start(t,Math.random()*2,.03);
+ },
+
+ /* ---------- horror SFX: all synthesized, all soft (no sudden loud sounds) ---------- */
+ ok(){return !!this.ctx&&CFG.sound&&this.ctx.state==='running'&&S.audioPhase!=='silent'},
+ env(g,t,a,peak,d){g.gain.cancelScheduledValues(t);g.gain.setValueAtTime(.0001,t);g.gain.exponentialRampToValueAtTime(peak,t+a);g.gain.exponentialRampToValueAtTime(.0001,t+a+d)},
+ out(node,p=0){
+  if(this.ctx.createStereoPanner){const pn=this.ctx.createStereoPanner();pn.pan.value=p;node.connect(pn);pn.connect(this.master)}
+  else node.connect(this.master);
+ },
+ noiseSrc(t,dur){const s=this.ctx.createBufferSource();s.buffer=this.white;s.loop=true;s.start(t,Math.random()*2);s.stop(t+dur+.1);return s},
+ // muffled body hit: pitch-dropping sine + low-passed noise
+ thump(t,f,peak,dur,pan=0){
+  const c=this.ctx,o=c.createOscillator(),g=c.createGain();
+  o.frequency.setValueAtTime(f,t);o.frequency.exponentialRampToValueAtTime(f*.5,t+dur);
+  this.env(g,t,.008,peak,dur);o.connect(g);this.out(g,pan);o.start(t);o.stop(t+dur+.05);
+  const n=this.noiseSrc(t,dur),nf=c.createBiquadFilter(),ng=c.createGain();
+  nf.type='lowpass';nf.frequency.value=f*4;this.env(ng,t,.004,peak*.5,dur*.6);n.connect(nf);nf.connect(ng);this.out(ng,pan);
+ },
+ knock(n=3,gap=.3,vol=.5,pan=0){                       // distant knocking
+  if(!this.ok())return;const t=this.ctx.currentTime+.05;
+  for(let i=0;i<n;i++)this.thump(t+i*gap+Math.random()*.03,150,vol*.3,.16,pan);
+  try{navigator.vibrate&&navigator.vibrate(Array.from({length:n*2-1},(_,i)=>i%2?Math.round(gap*1000-40):40))}catch(e){}
+ },
+ beat(vol){if(!this.ok())return;const t=this.ctx.currentTime+.02;this.thump(t,62,vol,.18);this.thump(t+.17,52,vol*.7,.2)},
+ steps(n=6,gap=.5,vol=.05,grow=1.12,pan=0){             // footsteps, optionally approaching
+  if(!this.ok())return;let t=this.ctx.currentTime+.05,v=vol;
+  for(let i=0;i<n;i++){this.thump(t,92+Math.random()*24,v,.09,pan+(i%2?.2:-.2));t+=gap*(.88+Math.random()*.24);v*=grow}
+ },
+ whisper(vol=.05,pan=0){                               // breathy, formant-filtered noise
+  if(!this.ok())return;const c=this.ctx,t=c.currentTime+.05,g=c.createGain(),n=this.noiseSrc(t,2.2);
+  [[600+Math.random()*300,6],[1700+Math.random()*500,8]].forEach(([f,q])=>{const b=c.createBiquadFilter();b.type='bandpass';b.frequency.value=f;b.Q.value=q;n.connect(b);b.connect(g)});
+  g.gain.setValueAtTime(0,t);let tt=t;
+  for(let k=0;k<5;k++){g.gain.linearRampToValueAtTime(vol*(.4+Math.random()*.6),tt+.08);g.gain.linearRampToValueAtTime(vol*.08,tt+.2);tt+=.22+Math.random()*.12}
+  g.gain.linearRampToValueAtTime(0,tt+.2);this.out(g,pan);
+ },
+ breath(vol=.04,pan=0){                                // slow inhale / exhale
+  if(!this.ok())return;const c=this.ctx,t=c.currentTime+.05,g=c.createGain(),f=c.createBiquadFilter(),n=this.noiseSrc(t,3);
+  f.type='bandpass';f.frequency.value=900;f.Q.value=.8;n.connect(f);f.connect(g);
+  g.gain.setValueAtTime(0,t);g.gain.linearRampToValueAtTime(vol,t+1.1);g.gain.linearRampToValueAtTime(vol*.2,t+1.4);g.gain.linearRampToValueAtTime(vol*.7,t+2);g.gain.linearRampToValueAtTime(0,t+2.8);
+  this.out(g,pan);
+ },
+ creak(vol=.03,pan=0){                                 // slow wooden creak
+  if(!this.ok())return;const c=this.ctx,t=c.currentTime+.05,o=c.createOscillator(),f=c.createBiquadFilter(),g=c.createGain();
+  o.type='sawtooth';o.frequency.setValueAtTime(130,t);o.frequency.linearRampToValueAtTime(215,t+.7);o.frequency.linearRampToValueAtTime(150,t+1.4);
+  f.type='bandpass';f.frequency.value=620;f.Q.value=10;o.connect(f);f.connect(g);
+  g.gain.setValueAtTime(0,t);g.gain.linearRampToValueAtTime(vol,t+.5);g.gain.linearRampToValueAtTime(0,t+1.5);
+  this.out(g,pan);o.start(t);o.stop(t+1.6);
+ },
+ crackle(big){                                         // digital glitch ticks
+  if(!this.ok())return;const c=this.ctx,t0=c.currentTime,n=big?14:6;
+  for(let i=0;i<n;i++){
+   const t=t0+Math.random()*(big?.45:.2),s=c.createBufferSource(),f=c.createBiquadFilter(),g=c.createGain();
+   s.buffer=this.white;f.type='highpass';f.frequency.value=2500;g.gain.setValueAtTime(.03+Math.random()*.03,t);g.gain.exponentialRampToValueAtTime(.0005,t+.004+Math.random()*.008);
+   s.connect(f);f.connect(g);g.connect(this.master);s.start(t,Math.random()*3,.02);
+  }
+ },
+ tension(sec=9,vol=.014){                              // slow dissonant swell (minor second)
+  if(!this.ok())return;const c=this.ctx,t=c.currentTime+.05,g=c.createGain();
+  g.gain.setValueAtTime(0,t);g.gain.linearRampToValueAtTime(vol,t+sec*.8);g.gain.linearRampToValueAtTime(0,t+sec);g.connect(this.master);
+  [220,233.1].forEach(f=>{const o=c.createOscillator();o.type='sine';o.frequency.setValueAtTime(f,t);o.frequency.linearRampToValueAtTime(f*1.06,t+sec);o.connect(g);o.start(t);o.stop(t+sec+.1)});
+ }
+};
+function audioPhase(p){S.audioPhase=p;A.apply()}
+function ensureAudio(){if(CFG.sound&&S.started){A.init();A.apply()}}
+function setSound(on){
+  CFG.sound=!!on;save();
+  if(on&&S.started)A.init();
+  A.apply();syncUI();
+}
+
+/* =====================  VISUAL STATE  ===================== */
+function setLevel(n){
+  S.level=n;const L=n<0?INTRO:LV[n];
+  $('#bg').style.opacity=L.bg;$('#noise').style.opacity=L.noise;$('#vig').style.opacity=L.vig;
+  document.body.dataset.level=n;A.apply();stat();
+}
+function glitch(big){
+  A.crackle(big);
+  if(!CFG.glitch||reduced)return;
+  APP.classList.remove('gl','gl2');void APP.offsetWidth;APP.classList.add(big?'gl2':'gl');
+  setTimeout(()=>APP.classList.remove('gl','gl2'),big?650:400);
+}
+(function ambientGlitch(){
+  setTimeout(()=>{if(S.started&&S.level>=1&&S.phase!=='ended')glitch(false);ambientGlitch()},rand(2800,6500)/(S.level>=3?1.6:1));
+})();
+// heartbeat: appears once the questions turn psychological and quickens with the level
+(function heart(){
+  const L=S.level;
+  setTimeout(()=>{if(L>=3&&S.started&&(S.audioPhase==='ambient'||S.audioPhase==='dip'))A.beat(.05+.012*L);heart()},L>=3?1050-L*95:1500);
+})();
+// a barely-visible figure standing in the room
+function figure(ms=900,side){
+  if(reduced)return;const f=$('#figure');if(!f)return;
+  f.setAttribute('class',side||(Math.random()<.5?'l':'r'));f.style.opacity=.5;
+  setTimeout(()=>{f.style.opacity=0},ms);
+}
+// text briefly corrupts, then recovers
+function corrupt(e){
+  const tn=e&&e.firstChild;if(!tn||tn.nodeType!==3||reduced)return;const orig=tn.data,G='▒░█#@%/';
+  tn.data=orig.replace(/[a-z]/gi,c=>Math.random()<.3?G[Math.floor(Math.random()*G.length)]:c);
+  setTimeout(()=>{if(tn.isConnected)tn.data=orig},170);
+}
+document.addEventListener('visibilitychange',()=>{
+  if(!S.started||S.phase==='ended')return;
+  document.title=document.hidden&&S.level>=3?'Where did you go?':(S.phase==='reveal'?'behind you':'WHO\'S THERE?');
+});
+// noise canvas
+(()=>{
+  const cv=$('#noise'),g=cv.getContext('2d'),w=cv.width,h=cv.height,img=g.createImageData(w,h),d=img.data;
+  setInterval(()=>{
+    for(let i=0;i<d.length;i+=4){const v=Math.random()<.16?Math.random()*255:0;d[i]=d[i+1]=d[i+2]=v;d[i+3]=255}
+    g.putImageData(img,0,0);
+  },90);
+})();
+
+/* =====================  DOM HELPERS  ===================== */
+function el(cls,tag='p'){const e=document.createElement(tag);e.className=cls;C.appendChild(e);return e}
+async function type(e,text,ms){
+  if(S.caret)S.caret.remove();
+  const caret=document.createElement('span');caret.className='caret';S.caret=caret;
+  const tn=document.createTextNode('');e.append(tn,caret);
+  for(const ch of text){
+    tn.data+=ch;if(ch!==' ')A.tick();
+    await sleep(ms*(.6+Math.random()*.8)+(',.;:?—…'.includes(ch)?ms*4:0));
+  }
+}
+const say=async(text,ms,cls='line')=>{const e=el(cls);await type(e,text,ms??(LV[S.level]||INTRO).ms);return e};
+async function wipe(ms=300){
+  if(!C.children.length)return;
+  if(ms<=0){hardClear();return}
+  C.classList.add('out');await sleep(ms);hardClear();
+}
+function choice(labels,{timeout=0,onPick,autoIndex}={}){
+  return new Promise((res,rej)=>{
+    const t=S.token,box=el('opts','div');let done=false,to=null;
+    const btns=labels.map((l,i)=>{const b=document.createElement('button');b.type='button';b.className='btn';b.textContent=l;b.style.animationDelay=(i*110)+'ms';box.appendChild(b);return b});
+    let bar=null;
+    if(timeout){
+      bar=document.createElement('div');bar.className='tbar';bar.innerHTML='<i></i>';box.appendChild(bar);
+      const inner=bar.firstChild;
+      requestAnimationFrame(()=>requestAnimationFrame(()=>{inner.style.transition=`transform ${timeout}ms linear`;inner.style.transform='scaleX(0)'}));
+    }
+    const pick=(i,auto)=>{
+      if(done||t!==S.token)return;done=true;clearTimeout(to);S.keyPick=null;
+      btns.forEach((b,j)=>{b.disabled=true;b.classList.add(j===i?'picked':'gone')});
+      if(bar)bar.classList.add('off');
+      if(onPick)onPick(i);res({i,auto:!!auto});
+    };
+    btns.forEach((b,i)=>b.addEventListener('click',()=>pick(i,false)));
+    S.keyPick=i=>{if(i<btns.length)pick(i,false)};
+    S.rejectors.push(()=>{clearTimeout(to);rej(ABORT)});
+    if(timeout)to=setTimeout(()=>pick(autoIndex??Math.floor(Math.random()*btns.length),true),timeout+(labels.length*110)+400);
+  });
+}
+const ansTimeout=k=>CFG.limit?ANS_T[k]*1000/(S.pace*CFG.speed):0;
+
+/* =====================  PLAN  ===================== */
+function buildPlan(){
+  const M=MODES[CFG.mode],used=new Set();
+  S.plan=M.tiers.map(tier=>{
+    const cands=POOL.map((p,i)=>({p,i})).filter(o=>o.p[0]===tier&&!used.has(o.i));
+    const c=M.rand?cands[Math.floor(Math.random()*cands.length)]:cands[0];
+    used.add(c.i);
+    return{level:tier,q:c.p[1],o:c.p[2]};
+  });
+  S.momentAfter=M.tiers.findIndex(t=>t>=2);
+  S.stages=[];
+  S.plan.forEach((_,i)=>{S.stages.push({k:'q'+i,d:NOM.q});if(i===S.momentAfter)S.stages.push({k:'moment',d:NOM.moment})});
+  S.stages.push({k:'final',d:NOM.final},{k:'reveal',d:NOM.reveal});
+  renderPlan();
+}
+function enter(key){
+  let off=0,total=0,found=false;
+  for(const s of S.stages){if(s.k===key)found=true;if(!found)off+=s.d;total+=s.d}
+  const now=performance.now();
+  if(S.t0==null)S.t0=now-off*1000;            // jumped in: assume "on schedule"
+  const left=Math.max(2.5,BUDGET-(now-S.t0)/1000);
+  S.pace=CFG.limit?Math.min(3.5,Math.max(1,(total-off)/(left*CFG.speed))):1;
+}
+function pickReaction(level,dt,auto){
+  if(auto)return AUTO_REACT[Math.floor(Math.random()*AUTO_REACT.length)];
+  if(level>=3&&dt>2.6)return'You hesitated.';
+  if(level>=3&&dt<.7)return'That was quick.';
+  const pool=REACT[level],fresh=pool.filter(r=>!S.usedR.has(r)),from=fresh.length?fresh:pool;
+  const r=from[Math.floor(Math.random()*from.length)];S.usedR.add(r);return r;
+}
+
+/* =====================  FLOWS  ===================== */
+async function intro(){
+  resetView();S.phase='intro';stat();
+  await sleep(1200);
+  $('#snd').classList.add('vis');$('#foot').classList.add('vis');
+  await say('Welcome.',55);await sleep(900);
+  await say('Before we begin, we need to ask you a few questions.',22);await sleep(600);
+  await choice(['START'],{onPick:startExperience});
+  await main(0);
+}
+function startExperience(){
+  S.started=true;S.t0=performance.now();S.usedR.clear();S.answers=[];
+  $('#mark').classList.add('vis');
+  if(CFG.film)try{document.documentElement.requestFullscreen&&document.documentElement.requestFullscreen()}catch(e){}
+  ensureAudio();audioPhase('ambient');
+}
+async function main(from=0,momentFirst=false){
+  let i=from;
+  if(momentFirst){setLevel(S.plan[S.momentAfter].level);await moment();i=S.momentAfter+1}
+  for(;i<S.plan.length;i++){await ask(i);if(i===S.momentAfter)await moment()}
+  await finalQ();await reveal();
+}
+async function ask(i){
+  enter('q'+i);
+  const q=S.plan[i],L=q.level;S.idx=i;S.phase='question';setLevel(L);audioPhase('ambient');
+  await wipe(i===0?0:250);
+  await sleep(LV[L].pause);
+  if(L<4){const lab=el('label');lab.textContent='QUESTION '+String(i+1).padStart(2,'0')}
+  const qe=await say(q.q,LV[L].ms,'line q');
+  if(L>=2&&Math.random()<.4)glitch(false);
+  if(L>=3&&Math.random()<.45)corrupt(qe);
+  if(L>=3&&Math.random()<.5)A.whisper(.03+.01*L,Math.random()<.5?-.8:.8);
+  if(L>=4&&Math.random()<.45)A.creak(.03,Math.random()<.5?-.6:.6);
+  if(L>=4&&Math.random()<.4)A.steps(3,.55,.045,1.1,Math.random()<.5?-.5:.5);
+  if(L>=4&&Math.random()<.4)setTimeout(()=>figure(800),600);
+  await sleep(200);
+  const t0=performance.now();
+  const r=await choice(q.o,{timeout:ansTimeout('q')});
+  const dt=(performance.now()-t0)/1000;
+  S.answers.push({q:q.q,a:q.o[r.i],level:L,auto:r.auto});
+  if(i===S.momentAfter){await sleep(350);return}      // next beat is "Wait."
+  await sleep(300);
+  await say(pickReaction(L,dt,r.auto),LV[L].ms*1.1,'line react');
+  await sleep(LV[L].hold);
+}
+async function moment(){
+  enter('moment');S.phase='moment';stat();
+  audioPhase('dip');await wipe(300);
+  await say('Wait.',80,'line big');await sleep(1200);
+  await say('Did you hear that?',35,'line big');
+  A.knock(3,.32,.55,.7);setTimeout(()=>{if(S.phase==='moment')glitch(false)},120);   // knocking, far to one side
+  await sleep(300);
+  const r=await choice(['NO'],{timeout:ansTimeout('moment'),autoIndex:0});
+  await sleep(300);await wipe(250);
+  await say('Good.',35);await sleep(450);
+  await say('Neither did I.',35);A.whisper(.05,-.8);await sleep(550);
+  const p=await say('Probably.',45);glitch(false);corrupt(p);figure(700,'l');await sleep(700);
+  audioPhase('ambient');
+}
+async function finalQ(){
+  enter('final');S.phase='final';setLevel(5);audioPhase('ambient');stat();
+  await wipe(300);
+  await say('One last question.',45);await sleep(450);
+  await say('Do you think someone is following you?',30,'line q');await sleep(200);
+  const r=await choice(['NO','MAYBE','I DON\'T KNOW'],{timeout:ansTimeout('final')});
+  S.answers.push({q:'Do you think someone is following you?',a:['NO','MAYBE','I DON\'T KNOW'][r.i],level:5,auto:r.auto});
+  await sleep(300);await wipe(300);
+  await say('That\'s interesting.',30);A.creak(.035,.5);await sleep(1200);          // dramatic beat
+  await say('Because someone has been following you.',26);A.breath(.05,-.7);await sleep(600);
+  await say('Your answers.',40);
+  audioPhase('silent');glitch(false);await sleep(450);           // total silence from here
+  const mine=S.answers.filter(a=>a.level>=2&&!a.auto&&a.q!=='Do you think someone is following you?').slice(-2);
+  if(mine.length){
+    await wipe(250);
+    for(const a of mine){const e=el('recall');e.textContent='“'+a.a+'”';await sleep(550)}
+    await sleep(650);
+  }
+}
+async function reveal(){
+  enter('reveal');S.phase='reveal';stat();
+  $('#foot').classList.remove('vis');
+  setLevel(5);audioPhase('silent');
+  await wipe(250);await sleep(350);
+  document.body.classList.add('reveal');
+  await say('YOU HAVE COMPLETED THE TEST.',34,'line title');await sleep(850);
+  audioPhase('static');A.tension(10,.014);
+  await say('Someone has been following you.',24);await sleep(750);
+  await say('Not on this website.',24);await sleep(650);
+  document.body.classList.add('red');
+  await say('Outside.',45,'line accent');glitch(true);A.knock(3,.36,.8,0);await sleep(950);
+  await wipe(250);
+  document.title='behind you';
+  await say('Look behind you.',40,'line accent');glitch(false);
+  A.steps(6,.42,.04,1.16,0);A.whisper(.06,.8);                   // slow footsteps closing in
+  const fig=$('#figure');fig.setAttribute('class','c');fig.style.opacity=.5;
+  await sleep(2500);
+  fig.style.opacity=0;audioPhase('silent');                       // everything stops
+  await say('Just kidding.',40);await sleep(800);
+  await say('Or are we?',45);
+  S.phase='ended';stat();
+  await sleep(900);
+  audioPhase('static');A.knock(2,.5,.45,0);glitch(true);         // one last knock
+  setTimeout(()=>{fig.setAttribute('class','c');fig.style.opacity=.35},900);
+  await sleep(1400);
+  if(CFG.disc)$('#disc').classList.add('vis');
+  // let the static die out slowly; the page stays black with a blinking cursor
+  await sleep(4000);audioPhase('silent');
+}
+
+/* =====================  RESET / VIEW  ===================== */
+function resetView(){
+  document.body.classList.remove('red','reveal');
+  ['#mark','#snd','#foot','#disc'].forEach(s=>$(s).classList.remove('vis'));
+  document.title='WHO\'S THERE?';S.pace=1;$('#figure').style.opacity=0;
+  S.audioPhase='silent';setLevel(-1);
+}
+function resetExperience(){
+  abort();S.started=false;S.answers=[];S.usedR.clear();S.t0=null;S.idx=-1;
+  buildPlan();run(intro);
+}
+function go(fn){
+  S.started=true;S.t0=null;
+  $('#mark').classList.add('vis');$('#snd').classList.add('vis');$('#foot').classList.add('vis');
+  document.body.classList.remove('red','reveal');$('#disc').classList.remove('vis');document.title='WHO\'S THERE?';
+  $('#figure').style.opacity=0;ensureAudio();run(fn);
+}
+const jumpTo=i=>go(()=>main(i));
+
+/* =====================  PANEL  ===================== */
+const P=$('#panel');
+function stat(){
+  const s=$('#pstat');if(!s)return;
+  s.textContent=`phase: ${S.phase}${S.idx>=0&&S.phase==='question'?' · Q'+(S.idx+1)+'/'+S.plan.length:''}\nlevel: ${S.level}   pace: ${S.pace.toFixed(2)}×\nmode: ${MODES[CFG.mode].name}`;
+}
+function renderPlan(){
+  const j=$('#pjump'),o=$('#pplan');if(!j||!o)return;
+  j.innerHTML='';o.innerHTML='';
+  S.plan.forEach((q,i)=>{
+    const b=document.createElement('button');b.type='button';b.textContent=i+1;b.onclick=()=>jumpTo(i);j.appendChild(b);
+    const li=document.createElement('li'),bb=document.createElement('button');bb.type='button';
+    bb.innerHTML=`${i+1}. <b>[${TIER[q.level]}]</b> ${q.q.replace(/</g,'&lt;')}`;bb.onclick=()=>jumpTo(i);li.appendChild(bb);o.appendChild(li);
+  });
+  const f=document.createElement('button');f.type='button';f.textContent='F';f.title='Final question';f.onclick=()=>go(()=>finalQ().then(reveal));j.appendChild(f);
+}
+function syncUI(){
+  $('#snd').textContent='SOUND: '+(CFG.sound?'ON':'OFF');
+  $('#osound').checked=CFG.sound;$('#oglitch').checked=CFG.glitch;$('#ofilm').checked=CFG.film;$('#olimit').checked=CFG.limit;$('#odisc').checked=CFG.disc;
+  $('#pspeed').value=String(CFG.speed);$('#pmode').value=CFG.mode;
+  document.body.classList.toggle('film',CFG.film);document.body.classList.toggle('noglitch',!CFG.glitch);
+  stat();
+}
+function togglePanel(force){
+  const open=force??!P.classList.contains('open');
+  P.classList.toggle('open',open);P.setAttribute('aria-hidden',String(!open));stat();
+}
+$('#pmode').innerHTML=Object.entries(MODES).map(([k,m])=>`<option value="${k}">${m.name}</option>`).join('');
+$('#pmode').onchange=e=>{CFG.mode=e.target.value;save();buildPlan();stat()};   // applies from the next question
+$('#pspeed').onchange=e=>{CFG.speed=+e.target.value;save()};
+$('#osound').onchange=e=>setSound(e.target.checked);
+$('#oglitch').onchange=e=>{CFG.glitch=e.target.checked;save();syncUI()};
+$('#ofilm').onchange=e=>{CFG.film=e.target.checked;save();syncUI();
+  if(CFG.film)try{document.documentElement.requestFullscreen&&document.documentElement.requestFullscreen()}catch(_){}
+  else try{document.fullscreenElement&&document.exitFullscreen()}catch(_){}};
+$('#olimit').onchange=e=>{CFG.limit=e.target.checked;save()};
+$('#odisc').onchange=e=>{CFG.disc=e.target.checked;save()};
+$('#pclose').onclick=()=>togglePanel(false);
+$('#snd').onclick=()=>setSound(!CFG.sound);
+P.addEventListener('click',e=>{
+  const a=e.target.closest('[data-act]');if(!a)return;
+  switch(a.dataset.act){
+    case'reset':resetExperience();break;
+    case'reload':location.reload();break;
+    case'dark':jumpTo(Math.max(0,S.plan.findIndex(q=>q.level>=2)));break;
+    case'moment':go(()=>main(0,true));break;
+    case'final':go(()=>finalQ().then(reveal));break;
+    case'reveal':go(()=>reveal());break;
+    case'shuffle':buildPlan();stat();break;
+  }
+});
+addEventListener('keydown',e=>{
+  if(e.key==='`'||(e.ctrlKey&&e.altKey&&e.key.toLowerCase()==='p')){e.preventDefault();togglePanel();return}
+  if(e.key==='Escape'&&P.classList.contains('open')){togglePanel(false);return}
+  if(/^[1-4]$/.test(e.key)&&S.keyPick&&!P.classList.contains('open'))S.keyPick(+e.key-1);
+});
+let taps=[];
+$('#hot').addEventListener('click',()=>{const n=Date.now();taps=taps.filter(t=>n-t<2500);taps.push(n);if(taps.length>=5){taps=[];togglePanel()}});
+
+/* =====================  BOOT  ===================== */
+buildPlan();syncUI();
+if(URLQ.has('panel'))togglePanel(true);
+run(intro);
+})();
+</script>
+</body>
+</html>
